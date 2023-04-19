@@ -96,6 +96,15 @@ func runesToString(runes ...rune) string {
 	return buffer.String()
 }
 
+// runesToBytes converst a slice of runes to a slice of bytes.
+func runesToBytes(runes ...rune) []byte {
+	var buffer bytes.Buffer
+	for _, r := range runes {
+		buffer.WriteByte(byte(r))
+	}
+	return buffer.Bytes()
+}
+
 // RunesToDecimalString converts a slice of runes to their comma-separated decimal values.
 func runesToDecimalString(runes []rune) string {
 	var buffer bytes.Buffer

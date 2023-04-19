@@ -56,10 +56,10 @@ func init() {
 
 type internalGenerator struct {
 	Name         string
-	GenerateFunc func() string
+	GenerateFunc func() []byte
 }
 
-func (gen *internalGenerator) Generate() string {
+func (gen *internalGenerator) Generate() []byte {
 	return gen.GenerateFunc()
 }
 
@@ -98,29 +98,29 @@ func newGenerator(regexp *syntax.Regexp, args *GeneratorArgs) (generator *intern
 
 // Generator that does nothing.
 func noop(regexp *syntax.Regexp, args *GeneratorArgs) (*internalGenerator, error) {
-	return &internalGenerator{regexp.String(), func() string {
-		return ""
+	return &internalGenerator{regexp.String(), func() []byte {
+		return []byte("")
 	}}, nil
 }
 
 func opEmptyMatch(regexp *syntax.Regexp, args *GeneratorArgs) (*internalGenerator, error) {
 	enforceOp(regexp, syntax.OpEmptyMatch)
-	return &internalGenerator{regexp.String(), func() string {
-		return ""
+	return &internalGenerator{regexp.String(), func() []byte {
+		return []byte("")
 	}}, nil
 }
 
 func opLiteral(regexp *syntax.Regexp, args *GeneratorArgs) (*internalGenerator, error) {
 	enforceOp(regexp, syntax.OpLiteral)
-	return &internalGenerator{regexp.String(), func() string {
-		return runesToString(regexp.Rune...)
+	return &internalGenerator{regexp.String(), func() []byte {
+		return runesToBytes(regexp.Rune...)
 	}}, nil
 }
 
 func opAnyChar(regexp *syntax.Regexp, args *GeneratorArgs) (*internalGenerator, error) {
 	enforceOp(regexp, syntax.OpAnyChar)
-	return &internalGenerator{regexp.String(), func() string {
-		return runesToString(rune(args.rng.Int31()))
+	return &internalGenerator{regexp.String(), func() []byte {
+		return runesToBytes(rune(args.rng.Int31()))
 	}}, nil
 }
 
@@ -166,12 +166,12 @@ func opConcat(regexp *syntax.Regexp, genArgs *GeneratorArgs) (*internalGenerator
 		return nil, generatorError(err, "error creating generators for concat pattern /%s/", regexp)
 	}
 
-	return &internalGenerator{regexp.String(), func() string {
+	return &internalGenerator{regexp.String(), func() []byte {
 		var result bytes.Buffer
 		for _, generator := range generators {
-			result.WriteString(generator.Generate())
+			result.Write(generator.Generate())
 		}
-		return result.String()
+		return result.Bytes()
 	}}, nil
 }
 
@@ -185,7 +185,7 @@ func opAlternate(regexp *syntax.Regexp, genArgs *GeneratorArgs) (*internalGenera
 
 	numGens := len(generators)
 
-	return &internalGenerator{regexp.String(), func() string {
+	return &internalGenerator{regexp.String(), func() []byte {
 		i := genArgs.rng.Intn(numGens)
 		generator := generators[i]
 		return generator.Generate()
@@ -208,12 +208,12 @@ func opCapture(regexp *syntax.Regexp, args *GeneratorArgs) (*internalGenerator, 
 	// Group indices are 0-based, but index 0 is the whole expression.
 	index := regexp.Cap - 1
 
-	return &internalGenerator{regexp.String(), func() string {
+	return &internalGenerator{regexp.String(), func() []byte {
 		return args.CaptureGroupHandler(index, regexp.Name, groupRegexp, generator, args)
 	}}, nil
 }
 
-func defaultCaptureGroupHandler(index int, name string, group *syntax.Regexp, generator Generator, args *GeneratorArgs) string {
+func defaultCaptureGroupHandler(index int, name string, group *syntax.Regexp, generator Generator, args *GeneratorArgs) []byte {
 	return generator.Generate()
 }
 
@@ -234,10 +234,10 @@ func enforceSingleSub(regexp *syntax.Regexp) error {
 }
 
 func createCharClassGenerator(name string, charClass *tCharClass, args *GeneratorArgs) (*internalGenerator, error) {
-	return &internalGenerator{name, func() string {
+	return &internalGenerator{name, func() []byte {
 		i := args.rng.Int31n(charClass.TotalSize)
 		r := charClass.GetRuneAt(i)
-		return runesToString(r)
+		return runesToBytes(r)
 	}}, nil
 }
 
@@ -259,13 +259,13 @@ func createRepeatingGenerator(regexp *syntax.Regexp, genArgs *GeneratorArgs, min
 		max = int(genArgs.MaxUnboundedRepeatCount)
 	}
 
-	return &internalGenerator{regexp.String(), func() string {
+	return &internalGenerator{regexp.String(), func() []byte {
 		n := min + genArgs.rng.Intn(max-min+1)
 
 		var result bytes.Buffer
 		for i := 0; i < n; i++ {
-			result.WriteString(generator.Generate())
+			result.Write(generator.Generate())
 		}
-		return result.String()
+		return result.Bytes()
 	}}, nil
 }

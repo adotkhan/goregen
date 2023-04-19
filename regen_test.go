@@ -17,6 +17,7 @@ limitations under the License.
 package regen
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math/rand"
 	"os"
@@ -38,11 +39,53 @@ const (
 	MaxSupportedRepeatCount = 1000
 )
 
+func sum(a []int) int {
+	sum := 0
+	for _, v := range a {
+		sum += v
+	}
+	return sum
+}
+
+func TestParser(t *testing.T) {
+	reg, err := syntax.Parse(`[\x00-\xff]{2}`, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// given regexp match pattern
+
+	fmt.Printf("%v\n", reg)
+
+	pattern, err := hex.DecodeString("007f")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	match, err := regexp.Match(`[\x00-\x7e]{2}`, pattern)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Printf("matched: %t\n", match)
+
+}
+
+func TestHex(t *testing.T) {
+	for i := 0; i < 100; i++ {
+		x, _ := Generate(`(([\x00-\x12]|[\xfe-\xff])|([\x20-\x7e]))\x00\x00\x01\x02[\x00-\xff]{5}`)
+		// if len(x) != 1 {
+		// 	t.Fatal("expected 1 byte, got", len(x))
+		// }
+		// convert byte to int
+		fmt.Println(hex.EncodeToString(x))
+	}
+}
+
 func ExampleGenerate() {
 	pattern := "[ab]{5}"
-	str, _ := Generate(pattern)
+	bytes, _ := Generate(pattern)
 
-	if matched, _ := regexp.MatchString(pattern, str); matched {
+	if matched, _ := regexp.MatchString(pattern, string(bytes)); matched {
 		fmt.Println("Matches!")
 	}
 
@@ -60,9 +103,9 @@ func ExampleNewGenerator() {
 		RngSource: rand.NewSource(0),
 	})
 
-	str := generator.Generate()
+	bytes := generator.Generate()
 
-	if matched, _ := regexp.MatchString(pattern, str); matched {
+	if matched, _ := regexp.MatchString(pattern, string(bytes)); matched {
 		fmt.Println("Matches!")
 	}
 
@@ -77,9 +120,9 @@ func ExampleNewGenerator_perl() {
 		Flags: syntax.Perl,
 	})
 
-	str := generator.Generate()
+	bytes := generator.Generate()
 
-	if matched, _ := regexp.MatchString("[[:digit:]]{5}", str); matched {
+	if matched, _ := regexp.MatchString("[[:digit:]]{5}", string(bytes)); matched {
 		fmt.Println("Matches!")
 	}
 	// Output:
@@ -91,11 +134,11 @@ func ExampleCaptureGroupHandler() {
 
 	generator, _ := NewGenerator(pattern, &GeneratorArgs{
 		Flags: syntax.Perl,
-		CaptureGroupHandler: func(index int, name string, group *syntax.Regexp, generator Generator, args *GeneratorArgs) string {
+		CaptureGroupHandler: func(index int, name string, group *syntax.Regexp, generator Generator, args *GeneratorArgs) []byte {
 			if name == "firstname" {
-				return fmt.Sprintf("FirstName (e.g. %s)", generator.Generate())
+				return []byte(fmt.Sprintf("FirstName (e.g. %s)", string(generator.Generate())))
 			}
-			return fmt.Sprintf("LastName (e.g. %s)", generator.Generate())
+			return []byte(fmt.Sprintf("LastName (e.g. %s)", string(generator.Generate())))
 		},
 	})
 
@@ -523,7 +566,7 @@ func TestCaptureGroupHandler(t *testing.T) {
 
 		gen, err := NewGenerator(`(?:foo) (bar) (?P<name>baz)`, &GeneratorArgs{
 			Flags: syntax.PerlX,
-			CaptureGroupHandler: func(index int, name string, group *syntax.Regexp, generator Generator, args *GeneratorArgs) string {
+			CaptureGroupHandler: func(index int, name string, group *syntax.Regexp, generator Generator, args *GeneratorArgs) []byte {
 				callCount++
 
 				So(index, ShouldBeLessThan, 2)
@@ -532,14 +575,14 @@ func TestCaptureGroupHandler(t *testing.T) {
 					So(name, ShouldEqual, "")
 					So(group.String(), ShouldEqual, "bar")
 					So(generator.Generate(), ShouldEqual, "bar")
-					return "one"
+					return []byte("one")
 				}
 
 				// Index 1
 				So(name, ShouldEqual, "name")
 				So(group.String(), ShouldEqual, "baz")
 				So(generator.Generate(), ShouldEqual, "baz")
-				return "two"
+				return []byte("two")
 			},
 		})
 		So(err, ShouldBeNil)
@@ -580,7 +623,7 @@ func ShouldGenerateStringMatchingTimes(actual interface{}, expected ...interface
 
 	for i := 0; i < times; i++ {
 		result := generator.Generate()
-		matched, err := regexp.MatchString(expectedPattern, result)
+		matched, err := regexp.MatchString(expectedPattern, string(result))
 		if err != nil {
 			panic(err)
 		}

@@ -20,13 +20,15 @@ The generated strings will match the expressions they were generated from. Simil
 to Ruby's randexp library.
 
 E.g.
+
 	regen.Generate("[a-z0-9]{1,64}")
+
 will return a lowercase alphanumeric string
 between 1 and 64 characters long.
 
 Expressions are parsed using the Go standard library's parser: http://golang.org/pkg/regexp/syntax/.
 
-Constraints
+# Constraints
 
 "." will generate any character, not necessarily a printable one.
 
@@ -34,7 +36,7 @@ Constraints
 If you care about the maximum number, specify it explicitly in the expression,
 e.g. "x{0,256}".
 
-Flags
+# Flags
 
 Flags can be passed to the parser by setting them in the GeneratorArgs struct.
 Newline flags are respected, and newlines won't be generated unless the appropriate flags for
@@ -48,7 +50,7 @@ The Perl character class flag is supported, and required if the pattern contains
 
 Unicode groups are not supported at this time. Support may be added in the future.
 
-Concurrent Use
+# Concurrent Use
 
 A generator can safely be used from multiple goroutines without locking.
 
@@ -63,7 +65,7 @@ the same source may get the same output. While obviously not cryptographically s
 benefit outweighs the risk of collisions. If you really care about preventing this, the solution is simple: don't
 call a single Generator from multiple goroutines.
 
-Benchmarks
+# Benchmarks
 
 Benchmarks are included for creating and running generators for limited-length,
 complex regexes, and simple, highly-repetitive regexes.
@@ -71,6 +73,7 @@ complex regexes, and simple, highly-repetitive regexes.
 	go test -bench .
 
 The complex benchmarks generate fake HTTP messages with the following regex:
+
 	POST (/[-a-zA-Z0-9_.]{3,12}){3,6}
 	Content-Length: [0-9]{2,3}
 	X-Auth-Token: [a-zA-Z0-9+/]{64}
@@ -79,12 +82,14 @@ The complex benchmarks generate fake HTTP messages with the following regex:
 	){3,15}[A-Za-z0-9+/]{60}([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)
 
 The repetitive benchmarks use the regex
+
 	a{999}
 
 See regen_benchmarks_test.go for more information.
 
 On my mid-2014 MacBook Pro (2.6GHz Intel Core i5, 8GB 1600MHz DDR3),
 the results of running the benchmarks with minimal load are:
+
 	BenchmarkComplexCreation-4                       200	   8322160 ns/op
 	BenchmarkComplexGeneration-4                   10000	    153625 ns/op
 	BenchmarkLargeRepeatCreateSerial-4  	        3000	    411772 ns/op
@@ -107,7 +112,7 @@ const DefaultMaxUnboundedRepeatCount = 4096
 // group is the regular expression within the group (e.g. for `(\w+)`, group would be `\w+`).
 // generator is the generator for group.
 // args is the args used to create the generator calling this function.
-type CaptureGroupHandler func(index int, name string, group *syntax.Regexp, generator Generator, args *GeneratorArgs) string
+type CaptureGroupHandler func(index int, name string, group *syntax.Regexp, generator Generator, args *GeneratorArgs) []byte
 
 // GeneratorArgs are arguments passed to NewGenerator that control how generators
 // are created.
@@ -177,7 +182,7 @@ func (a *GeneratorArgs) Rng() *rand.Rand {
 
 // Generator generates random strings.
 type Generator interface {
-	Generate() string
+	Generate() []byte
 	String() string
 }
 
@@ -188,10 +193,10 @@ If args is nil, default values are used.
 This function does not seed the default RNG, so you must call rand.Seed() if you want
 non-deterministic strings.
 */
-func Generate(pattern string) (string, error) {
+func Generate(pattern string) ([]byte, error) {
 	generator, err := NewGenerator(pattern, nil)
 	if err != nil {
-		return "", err
+		return []byte(""), err
 	}
 	return generator.Generate(), nil
 }
